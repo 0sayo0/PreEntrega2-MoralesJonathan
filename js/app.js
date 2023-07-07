@@ -1,131 +1,170 @@
-// Variables
-const carrito = document.querySelector('#carrito');
-const listaCursos = document.querySelector('#lista-cursos');
-const contenedorCarrito = document.querySelector('#lista-carrito tbody');
-const vaciarCarritoBtn = document.querySelector('#vaciar-carrito'); 
-let articulosCarrito = [];
+// Cotizador de criptomonedas
+const criptomonedasSelect = document.querySelector('#criptomonedas');
+const monedaSelect = document.querySelector('#moneda');
+const formulario = document.querySelector('#formulario');
+const resultado = document.querySelector('#resultado');
 
-// Listeners
-cargarEventListeners();
+const objBusqueda = {
+    moneda: '',
+    criptomoneda: ''
+};
 
-function cargarEventListeners() {
-     // Dispara cuando se presiona "Agregar Carrito"
-     listaCursos.addEventListener('click', agregarCurso);
-
-     // Cuando se elimina un curso del carrito
-     carrito.addEventListener('click', eliminarCurso);
-
-     // Al Vaciar el carrito
-     vaciarCarritoBtn.addEventListener('click', vaciarCarrito);
+// Promises
+const obtenerCriptomonedas = criptomonedas => new Promise( resolve => {
+    resolve(criptomonedas);
+});
 
 
-     // NUEVO: Contenido cargado
-     document.addEventListener('DOMContentLoaded', () => {
-          articulosCarrito = JSON.parse( localStorage.getItem('carrito') ) || []  ;
-          // console.log(articulosCarrito);
-          carritoHTML();
-     });
+document.addEventListener('DOMContentLoaded', () => {
+    consultarCriptomonedas();
+
+    formulario.addEventListener('submit', submitFormulario);
+    criptomonedasSelect.addEventListener('change', leerValor);
+    monedaSelect.addEventListener('change', leerValor);
+});
+
+// Consulta la API par aobtener un listado de Criptomonedas
+async function consultarCriptomonedas() {
+
+    // Ir  AtoPLISTS Y Despues market capp 
+    const url = 'https://min-api.cryptocompare.com/data/top/mktcapfull?limit=10&tsym=USD'; 
+
+    try {
+        const respuesta = await fetch(url);
+        const resultado = await respuesta.json();
+        const criptomonedas = await obtenerCriptomonedas(resultado.Data);
+        selectCriptomonedas(criptomonedas);
+    } catch (error) {
+        console.log(error);
+    }
+
+    
+
+    // fetch(url)
+    //     .then( respuesta => respuesta.json()) // Consulta exitosa...
+    //     .then( resultado => obtenerCriptomonedas(resultado.Data)) // 
+    //     .then( criptomonedas  =>  selectCriptomonedas(criptomonedas) )
+    //     .catch( error => console.log(error));
+}
+
+// llena el select 
+function selectCriptomonedas(criptomonedas) {
+    criptomonedas.forEach( cripto => {
+        const { FullName, Name } = cripto.CoinInfo;
+        const option = document.createElement('option');
+        option.value = Name;
+        option.textContent = FullName;
+        // insertar el HTML
+        criptomonedasSelect.appendChild(option);
+    });
 }
 
 
-// Función que añade el curso al carrito
-function agregarCurso(e) {
-     e.preventDefault();
-     // Delegation para agregar-carrito
-     if(e.target.classList.contains('agregar-carrito')) {
-          const curso = e.target.parentElement.parentElement;
-          // Enviamos el curso seleccionado para tomar sus datos
-          leerDatosCurso(curso);
-     }
+function leerValor(e)  {
+    objBusqueda[e.target.name] = e.target.value;
 }
 
-// Lee los datos del curso
-function leerDatosCurso(curso) {
-     const infoCurso = {
-          imagen: curso.querySelector('img').src,
-          titulo: curso.querySelector('h4').textContent,
-          precio: curso.querySelector('.precio span').textContent,
-          id: curso.querySelector('a').getAttribute('data-id'), 
-          cantidad: 1
-     }
+function submitFormulario(e) {
+    e.preventDefault();
 
+    // Extraer los valores
+    const { moneda, criptomoneda} = objBusqueda;
 
-     if( articulosCarrito.some( curso => curso.id === infoCurso.id ) ) { 
-          const cursos = articulosCarrito.map( curso => {
-               if( curso.id === infoCurso.id ) {
-                    let cantidad = parseInt(curso.cantidad);
-                    cantidad++
-                    curso.cantidad =  cantidad;
-                    return curso;
-               } else {
-                    return curso;
-               }
-          })
-          articulosCarrito = [...cursos];
-     }  else {
-          articulosCarrito = [...articulosCarrito, infoCurso];
-     }
+    if(moneda === '' || criptomoneda === '') {
+        mostrarAlerta('Ambos campos son obligatorios');
+        return;
+    }
 
-     console.log(articulosCarrito)
-
-     
-
-     // console.log(articulosCarrito)
-     carritoHTML();
-}
-
-// Elimina el curso del carrito en el DOM
-function eliminarCurso(e) {
-     e.preventDefault();
-     if(e.target.classList.contains('borrar-curso') ) {
-          // e.target.parentElement.parentElement.remove();
-          const curso = e.target.parentElement.parentElement;
-          const cursoId = curso.querySelector('a').getAttribute('data-id');
-          
-          // Eliminar del arreglo del carrito
-          articulosCarrito = articulosCarrito.filter(curso => curso.id !== cursoId);
-
-          carritoHTML();
-     }
+    consultarAPI();
 }
 
 
-// Muestra el curso seleccionado en el Carrito
-function carritoHTML() {
+function mostrarAlerta(mensaje) {
+        // Crea el div
+        const divMensaje = document.createElement('div');
+        divMensaje.classList.add('error');
+        
+        // Mensaje de error
+        divMensaje.textContent = mensaje;
 
-     vaciarCarrito();
+        // Insertar en el DOM
+       formulario.appendChild(divMensaje);
 
-     articulosCarrito.forEach(curso => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-               <td>  
-                    <img src="${curso.imagen}" width=100>
-               </td>
-               <td>${curso.titulo}</td>
-               <td>${curso.precio}</td>
-               <td>${curso.cantidad} </td>
-               <td>
-                    <a href="#" class="borrar-curso" data-id="${curso.id}">X</a>
-               </td>
-          `;
-          contenedorCarrito.appendChild(row);
-     });
-
-     // NUEVO:
-     sincronizarStorage();
-
+        // Quitar el alert despues de 3 segundos
+        setTimeout( () => {
+            divMensaje.remove();
+        }, 3000);
 }
 
 
-// NUEVO: 
-function sincronizarStorage() {
-     localStorage.setItem('carrito', JSON.stringify(articulosCarrito));
+async function consultarAPI() {
+    const { moneda, criptomoneda} = objBusqueda;
+
+    const url = `https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${criptomoneda}&tsyms=${moneda}`;
+
+    mostrarSpinner();
+
+    const respuesta = await fetch(url);
+    const cotizacion = await respuesta.json();
+    mostrarCotizacionHTML(cotizacion.DISPLAY[criptomoneda][moneda]);
+
+    // fetch(url)  
+    //     .then(respuesta => respuesta.json())
+    //     .then(cotizacion => {
+    //         mostrarCotizacionHTML(cotizacion.DISPLAY[criptomoneda][moneda]);
+    //     });
 }
 
-// Elimina los cursos del carrito en el DOM
-function vaciarCarrito() {
-     // forma rapida (recomendada)
-     while(contenedorCarrito.firstChild) {
-          contenedorCarrito.removeChild(contenedorCarrito.firstChild);
-      }
+function mostrarCotizacionHTML(cotizacion) {
+
+    limpiarHTML();
+
+    console.log(cotizacion);
+    const  { PRICE, HIGHDAY, LOWDAY, CHANGEPCT24HOUR, LASTUPDATE } = cotizacion;
+
+
+    const precio = document.createElement('p');
+    precio.classList.add('precio');
+    precio.innerHTML = `El Precio es: <span> ${PRICE} </span>`;
+
+    const precioAlto = document.createElement('p');
+    precioAlto.innerHTML = `<p>Precio más alto del día: <span>${HIGHDAY}</span> </p>`;
+
+    const precioBajo = document.createElement('p');
+    precioBajo.innerHTML = `<p>Precio más bajo del día: <span>${LOWDAY}</span> </p>`;
+
+    const ultimasHoras = document.createElement('p');
+    ultimasHoras.innerHTML = `<p>Variación últimas 24 horas: <span>${CHANGEPCT24HOUR}%</span></p>`;
+
+    const ultimaActualizacion = document.createElement('p');
+    ultimaActualizacion.innerHTML = `<p>Última Actualización: <span>${LASTUPDATE}</span></p>`;
+
+    resultado.appendChild(precio);
+    resultado.appendChild(precioAlto);
+    resultado.appendChild(precioBajo);
+    resultado.appendChild(ultimasHoras);
+    resultado.appendChild(ultimaActualizacion);
+
+    formulario.appendChild(resultado);
 }
+
+function mostrarSpinner() {
+    limpiarHTML();
+
+    const spinner = document.createElement('div');
+    spinner.classList.add('spinner');
+
+    spinner.innerHTML = `
+        <div class="bounce1"></div>
+        <div class="bounce2"></div>
+        <div class="bounce3"></div>    
+    `;
+
+    resultado.appendChild(spinner);
+}
+
+function limpiarHTML() {
+    while(resultado.firstChild) {
+        resultado.removeChild(resultado.firstChild);
+    }
+  }
